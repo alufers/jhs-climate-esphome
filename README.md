@@ -1,6 +1,6 @@
 # JHS Climate for esphome
 
-Integration with [ESPHhome](https://esphome.io) for portable air conditioners made by [JHS (Dongguan Jinhongsheng Electric Co., Ltd.)](https://www.jhs8.com/). THey are sold by the Action chain in Poland. This integration allows you to control the Air Conditioner from Home Assistant.
+Integration with [ESPHhome](https://esphome.io) for portable air conditioners made by [JHS (Dongguan Jinhongsheng Electric Co., Ltd.)](https://www.jhs8.com/). They are sold by the Action chain in Poland. This integration allows you to control the Air Conditioner from Home Assistant.
 
 This component works only on the dual core ESP32 (it does not work on the ESP8266), although it could be adapted for it (PR's welcome).
 
