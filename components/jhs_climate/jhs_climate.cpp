@@ -147,7 +147,7 @@ void JHSClimate::recv_from_ac()
         {
             ESP_LOGW(TAG, "Received invalid packet from AC");
             last_ac_packet_string = "";
-            
+
             continue;
         }
         JHSAcPacket packet = *packet_optional;
@@ -157,7 +157,7 @@ void JHSClimate::recv_from_ac()
         std::string packet_str = packet.to_string();
         if (packet_str != last_ac_packet_string)
         {
-            ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int) same_ac_packets_count, packet_str.c_str());
+            ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int)same_ac_packets_count, packet_str.c_str());
             last_ac_packet_string = packet_str;
             same_ac_packets_count = 0;
         }
@@ -249,14 +249,19 @@ void JHSClimate::recv_from_ac()
             {
                 if (this->target_temperature != temp_from_packet)
                 {
-                    auto packet_to_send = BUTTON_HIGHER_TEMP;
+                    auto packet_to_send = BUTTON_LOWER_TEMP;
                     if (this->target_temperature > temp_from_packet)
                     {
-                        packet_to_send = BUTTON_LOWER_TEMP;
+                        packet_to_send = BUTTON_HIGHER_TEMP;
+                        ESP_LOGD(TAG, "Sending BUTTON_HIGHER_TEMP packet to AC");
+                    }
+                    else
+                    {
+                        ESP_LOGD(TAG, "Sending BUTTON_LOWER_TEMP packet to AC");
                     }
                     // create a vector from BUTTON_UP, which is an std::array
                     std::vector<uint8_t> packet_vector(packet_to_send.begin(), packet_to_send.end());
-                    ESP_LOGD(TAG, "Sending BUTTON_UP packet to AC");
+
                     this->send_rmt_data(this->rmt_ac_tx, packet_vector);
                     this->steps_left_to_adjust_temp--;
                 }
