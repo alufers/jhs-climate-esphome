@@ -92,6 +92,8 @@ static void jhs_recv_task_func(void *arg)
 {
     jhs_recv_task_config *config_ptr = (jhs_recv_task_config *)arg;
 
+    pinMode(config_ptr->ac_rx_pin, INPUT);
+    pinMode(config_ptr->panel_rx_pin, INPUT);
     attachInterrupt(config_ptr->ac_rx_pin, jhs_ac_rx_isr, FALLING);
     attachInterrupt(config_ptr->panel_rx_pin, jhs_panel_rx_isr, FALLING);
 
