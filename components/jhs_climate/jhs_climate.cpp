@@ -105,6 +105,18 @@ void JHSClimate::loop()
     // }
 }
 
+
+
+std::string bytes_to_hex(std::vector<uint8_t> bytes)
+{
+    std::stringstream ss;
+    for (auto b : bytes)
+    {
+        ss << std::hex << std::setfill('0') << std::setw(2) << (int)b;
+    }
+    return ss.str();
+}
+
 void JHSClimate::recv_from_panel()
 {
     uint8_t packet[JHS_PANEL_PACKET_SIZE];
@@ -123,6 +135,7 @@ void JHSClimate::recv_from_panel()
             ESP_LOGI(TAG, "Received keepalive packet from panel");
             // continue;
         }
+        ESP_LOGI(TAG, "Received packet from panel: %s", bytes_to_hex(packet).c_str());
         uint32_t now = esphome::millis();
         if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
         {
