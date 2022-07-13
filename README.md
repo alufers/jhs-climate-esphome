@@ -12,7 +12,7 @@ The ESP32 has to be connected between the motherboard and the control panel of t
 
 ```yaml
 external_components:
-  - source: https://github.com/alufers/jhs-climate-esphome
+  - source: github://alufers/jhs-climate-esphome
 climate:
   - id: jhsclimate
     platform: jhs_climate
@@ -22,3 +22,4 @@ climate:
     panel_rx_pin: 32 # data coming from the control panel to the ESP
     panel_tx_pin: 33 # data going from the ESP to the control panel
 ```
+
