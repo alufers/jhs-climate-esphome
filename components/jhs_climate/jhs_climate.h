@@ -64,6 +64,8 @@ protected:
 
     std::vector<uint8_t> last_packet_from_ac_vector;
 
+    uint32_t loop_idx = 0;
+
 private:
     // setup helpers
     void setup_rmt();
