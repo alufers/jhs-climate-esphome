@@ -116,7 +116,7 @@ void JHSClimate::recv_from_panel()
         if (is_keepalive)
         {
             ESP_LOGI(TAG, "Received keepalive packet from panel");
-            continue;
+            // continue;
         }
         uint32_t now = esphome::millis();
         if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
@@ -141,6 +141,7 @@ void JHSClimate::recv_from_ac()
 
     while (xQueueReceive(ac_rx_queue, &packet, 0))
     {
+        did_try_turn_on = false;
         std::vector<uint8_t> packet_vector(packet, packet + JHS_AC_PACKET_SIZE);
         esphome::optional<JHSAcPacket> packet_optional = JHSAcPacket::parse(packet_vector);
         if (!packet_optional)
@@ -230,13 +231,18 @@ void JHSClimate::recv_from_ac()
                 if (this->mode != mode_from_packet)
                 {
                     auto packet_to_send = BUTTON_MODE;
-                    if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_OFF)
+                    if (this->mode == esphome::climate::ClimateMode::CLIMATE_MODE_OFF || mode_from_packet == esphome::climate::CLIMATE_MODE_OFF)
                     {
                         packet_to_send = BUTTON_ON;
+                        ESP_LOGD(TAG, "Sending BUTTON_ON packet to AC");
+                    }
+                    else
+                    {
+                        ESP_LOGD(TAG, "Sending BUTTON_MODE packet to AC");
                     }
                     // create a vector from BUTTON_MODE, which is an std::array
                     std::vector<uint8_t> packet_vector(packet_to_send.begin(), packet_to_send.end());
-                    ESP_LOGD(TAG, "Sending BUTTON_MODE packet to AC");
+
                     this->send_rmt_data(this->rmt_ac_tx, packet_vector);
                     this->steps_left_to_adjust_mode--;
                 }
@@ -289,8 +295,13 @@ void JHSClimate::recv_from_ac()
             }
         }
     }
-    if (esphome::millis() - last_packet_from_ac > 700 && !did_receive && is_adjusting() && this->mode != esphome::climate::CLIMATE_MODE_OFF)
+    if (esphome::millis() - last_packet_from_ac > 700 &&
+        !did_receive &&
+        is_adjusting() &&
+        this->mode != esphome::climate::CLIMATE_MODE_OFF &&
+        !did_try_turn_on)
     {
+        did_try_turn_on = true;
         last_packet_from_ac = esphome::millis();
         // turn on the ac
         auto packet_to_send = BUTTON_ON;
