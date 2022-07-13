@@ -147,7 +147,7 @@ void JHSClimate::recv_from_ac()
         {
             ESP_LOGW(TAG, "Received invalid packet from AC");
             last_ac_packet_string = "";
-            same_ac_packets_count = 0;
+            
             continue;
         }
         JHSAcPacket packet = *packet_optional;
@@ -157,7 +157,7 @@ void JHSClimate::recv_from_ac()
         std::string packet_str = packet.to_string();
         if (packet_str != last_ac_packet_string)
         {
-            ESP_LOGD(TAG, "Received new packet from AC after %u same packets: %s", same_ac_packets_count, packet_str.c_str());
+            ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int) same_ac_packets_count, packet_str.c_str());
             last_ac_packet_string = packet_str;
             same_ac_packets_count = 0;
         }
@@ -219,7 +219,7 @@ void JHSClimate::recv_from_ac()
         }
         else
         {
-            if (esphome::millis() - last_adjustment > ADJUSTMENT_INTERVAL)
+            if (esphome::millis() - last_adjustment < ADJUSTMENT_INTERVAL)
             {
                 continue;
             }
