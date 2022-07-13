@@ -45,6 +45,7 @@ protected:
     const uint32_t PANEL_MIN_PACKET_INTERVAL = 900;
     uint32_t last_packet_from_ac = 0;
     std::string last_ac_packet_string;
+    uint32_t same_ac_packets_count = 0;
 
     uint32_t last_screen_update = 0;
     const uint32_t SCREEN_UPDATE_INTERVAL = 600;
