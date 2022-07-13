@@ -8,6 +8,7 @@
 #include "esp32-hal.h"
 
 #include <sstream>
+#include <iomanip>
 
 static const char *TAG = "JHSClimate";
 
@@ -122,6 +123,8 @@ void JHSClimate::recv_from_panel()
     uint8_t packet[JHS_PANEL_PACKET_SIZE];
     while (xQueueReceive(panel_rx_queue, &packet, 0))
     {
+
+         std::vector<uint8_t> packet_vector(packet, packet + JHS_PANEL_PACKET_SIZE);
         bool is_keepalive = false;
         for (int i = 0; i < JHS_PANEL_PACKET_SIZE; i++)
         {
@@ -135,14 +138,14 @@ void JHSClimate::recv_from_panel()
             ESP_LOGI(TAG, "Received keepalive packet from panel");
             // continue;
         }
-        ESP_LOGI(TAG, "Received packet from panel: %s", bytes_to_hex(packet).c_str());
+        ESP_LOGI(TAG, "Received packet from panel: %s", bytes_to_hex(packet_vector).c_str());
         uint32_t now = esphome::millis();
         if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
         {
             ESP_LOGD(TAG, "Received packet from panel too soon, ignoring");
             continue;
         }
-        std::vector<uint8_t> packet_vector(packet, packet + JHS_PANEL_PACKET_SIZE);
+       
         this->send_rmt_data(this->rmt_ac_tx, packet_vector);
     }
 }
