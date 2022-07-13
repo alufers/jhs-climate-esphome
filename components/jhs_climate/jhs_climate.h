@@ -44,10 +44,13 @@ protected:
     uint32_t last_packet_from_panel = 0;
     const uint32_t PANEL_MIN_PACKET_INTERVAL = 900;
     uint32_t last_packet_from_ac = 0;
+    std::string last_ac_packet_string;
 
     uint32_t last_screen_update = 0;
     const uint32_t SCREEN_UPDATE_INTERVAL = 600;
 
+    uint32_t last_adjustment = 0;
+    const int ADJUSTMENT_INTERVAL = 350;
     int steps_left_to_adjust_mode = 0;
     int steps_left_to_adjust_temp = 0;
     int steps_left_to_adjust_fan = 0;

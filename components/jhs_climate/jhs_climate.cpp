@@ -146,13 +146,19 @@ void JHSClimate::recv_from_ac()
         if (!packet_optional)
         {
             ESP_LOGW(TAG, "Received invalid packet from AC");
+            last_ac_packet_string = "";
             continue;
         }
         JHSAcPacket packet = *packet_optional;
         this->last_packet_from_ac = esphome::millis();
         last_packet_from_ac_vector = packet_vector;
         did_receive = true;
-        ESP_LOGD(TAG, "Received packet from AC: %s", packet.to_string().c_str());
+        std::string packet_str = packet.to_string();
+        if (packet_str != last_ac_packet_string)
+        {
+            ESP_LOGD(TAG, "Received new packet from AC: %s", packet_str.c_str());
+            last_ac_packet_string = packet_str;
+        }
         esphome::climate::ClimateMode mode_from_packet = esphome::climate::CLIMATE_MODE_OFF;
         if (packet.cool)
         {
@@ -207,6 +213,11 @@ void JHSClimate::recv_from_ac()
         }
         else
         {
+            if (esphome::millis() - last_adjustment > ADJUSTMENT_INTERVAL)
+            {
+                continue;
+            }
+            last_adjustment = esphome::millis();
             // we are adjusting
             if (this->steps_left_to_adjust_mode > 0)
             {
@@ -285,7 +296,8 @@ void JHSClimate::recv_from_ac()
 
 void JHSClimate::update_screen_if_needed()
 {
-    if(this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0) return;
+    if (this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0)
+        return;
     if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
     {
         return;
