@@ -98,6 +98,11 @@ void JHSClimate::loop()
     this->recv_from_ac();
     this->recv_from_panel();
     this->update_screen_if_needed();
+    loop_idx++;
+    if (loop_idx % 20 == 0)
+    {
+        ESP_LOGD(TAG, "digitalRead(ac_rx) = %d, digitalRead(panel_rx) = %d", digitalRead(this->ac_rx_pin_->get_pin()), digitalRead(this->panel_rx_pin_->get_pin()));
+    }
 }
 
 void JHSClimate::recv_from_panel()
