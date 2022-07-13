@@ -178,7 +178,7 @@ esphome::optional<JHSAcPacket> JHSAcPacket::parse(const std::vector<uint8_t> &da
     }
     if (checksum != checksum_calculated)
     {
-        ESP_LOGE(TAG, "JHS AC packet checksum mismatch: %d != %d", checksum, checksum_calculated);
+        ESP_LOGE(TAG, "JHS AC packet checksum mismatch: %d != %d in packet: %s", checksum, checksum_calculated, bytes_to_hex(data).c_str());
         return esphome::optional<JHSAcPacket>();
     }
     return esphome::make_optional(packet);
