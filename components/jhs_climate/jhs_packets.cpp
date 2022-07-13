@@ -174,7 +174,7 @@ esphome::optional<JHSAcPacket> JHSAcPacket::parse(const std::vector<uint8_t> &da
     uint8_t checksum_calculated = 90;
     for (size_t i = 0; i < data.size() - 1; i++)
     {
-        checksum += data[i];
+        checksum_calculated += data[i];
     }
     if (checksum != checksum_calculated)
     {
