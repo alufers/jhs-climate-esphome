@@ -4,8 +4,6 @@ from esphome.components import climate
 from esphome.const import CONF_ID
 from esphome import pins
 
-print("ASSSS", climate)
-
 
 DEPENDENCIES = []
 
