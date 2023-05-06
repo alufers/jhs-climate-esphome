@@ -66,6 +66,9 @@ protected:
 
     uint32_t loop_idx = 0;
 
+    float rmt_panel_tx_tick;
+    float rmt_ac_tx_tick;
+
 private:
     // setup helpers
     void setup_rmt();

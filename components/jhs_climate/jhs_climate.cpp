@@ -27,11 +27,12 @@ void JHSClimate::setup_rmt()
 {
 
     this->rmt_panel_tx = rmtInit(this->panel_tx_pin_->get_pin(), true, RMT_MEM_192);
-
-    rmtSetTick(this->rmt_panel_tx, 250 * 1000); // 250 microseconds per tick
+    this->rmt_panel_tx_tick = rmtSetTick(this->rmt_panel_tx, 2500); // papieska wartość
+    ESP_LOGI(TAG, "RMT panel tx tick: %f", this->rmt_panel_tx_tick);
 
     this->rmt_ac_tx = rmtInit(this->ac_tx_pin_->get_pin(), true, RMT_MEM_192);
-    rmtSetTick(this->rmt_ac_tx, 250 * 1000); // 250 microseconds per tick
+    this->rmt_ac_tx_tick = rmtSetTick(this->rmt_ac_tx, 2500); // papieska wartość
+    ESP_LOGI(TAG, "RMT ac tx tick: %f", this->rmt_ac_tx_tick);
 
     // ugly hack to set all RMT channels to high on idle
     for (int i = 0; i < 8; i++)
@@ -92,6 +93,8 @@ void JHSClimate::dump_config()
     LOG_PIN("  AC RX Pin: ", this->ac_rx_pin_);
     LOG_PIN("  Panel TX Pin: ", this->panel_tx_pin_);
     LOG_PIN("  Panel RX Pin: ", this->panel_rx_pin_);
+    ESP_LOGCONFIG(TAG, "  RMT panel tx tick: %f", this->rmt_panel_tx_tick);
+    ESP_LOGCONFIG(TAG, "  RMT ac tx tick: %f", this->rmt_ac_tx_tick);
 }
 
 void JHSClimate::loop()
@@ -123,29 +126,45 @@ void JHSClimate::recv_from_panel()
     uint8_t packet[JHS_PANEL_PACKET_SIZE];
     while (xQueueReceive(panel_rx_queue, &packet, 0))
     {
-
-         std::vector<uint8_t> packet_vector(packet, packet + JHS_PANEL_PACKET_SIZE);
+        std::vector<uint8_t> packet_vector(packet, packet + JHS_PANEL_PACKET_SIZE);
         bool is_keepalive = false;
-        for (int i = 0; i < JHS_PANEL_PACKET_SIZE; i++)
-        {
-            if (packet[i] == KEEPALIVE_PACKET[i])
-            {
-                is_keepalive = true;
-            }
-        }
-        if (is_keepalive)
+
+        if (memcmp(packet, &KEEPALIVE_PACKET, JHS_PANEL_PACKET_SIZE) == 0)
         {
             ESP_LOGI(TAG, "Received keepalive packet from panel");
-            // continue;
+            is_keepalive = true;
         }
-        ESP_LOGI(TAG, "Received packet from panel: %s", bytes_to_hex2(packet_vector).c_str());
-        uint32_t now = esphome::millis();
-        if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
+        else if (memcmp(packet, &BUTTON_ON, JHS_PANEL_PACKET_SIZE) == 0)
         {
-            ESP_LOGD(TAG, "Received packet from panel too soon, ignoring");
-            continue;
+            ESP_LOGI(TAG, "Received BUTTON_ON from panel");
         }
-       
+        else if (memcmp(packet, &BUTTON_LOWER_TEMP, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_LOWER_TEMP from panel");
+        }
+        else if (memcmp(packet, &BUTTON_HIGHER_TEMP, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_HIGHER_TEMP from panel");
+        }
+        else if (memcmp(packet, &BUTTON_MODE, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_MODE from panel");
+        }
+        else if (memcmp(packet, &BUTTON_FAN, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_FAN from panel");
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Received unknown packet from panel: %s", bytes_to_hex2(packet_vector).c_str());
+        }
+        // uint32_t now = esphome::millis();
+        // if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
+        // {
+        //     ESP_LOGD(TAG, "Received packet from panel too soon, ignoring");
+        //     continue;
+        // }
+        // last_packet_from_panel = now;
         this->send_rmt_data(this->rmt_ac_tx, packet_vector);
     }
 }
@@ -168,7 +187,7 @@ void JHSClimate::recv_from_ac()
         if (!packet_optional)
         {
             ESP_LOGW(TAG, "Received invalid packet from AC");
-            last_ac_packet_string = "";
+            //last_ac_packet_string = "";
 
             continue;
         }
@@ -341,11 +360,11 @@ void JHSClimate::update_screen_if_needed()
 {
     if (this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0)
         return;
-    if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
-    {
-        return;
-    }
-    this->last_screen_update = esphome::millis();
+    // if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
+    // {
+    //     return;
+    // }
+    // this->last_screen_update = esphome::millis();
 
     this->send_rmt_data(this->rmt_panel_tx, this->last_packet_from_ac_vector);
 }
@@ -355,9 +374,9 @@ void JHSClimate::send_rmt_data(rmt_obj_t *rmt, std::vector<uint8_t> data)
     rmt_data_to_send.reserve((data.size() * 8) + 2); // 8 bits per byte + 2 bits for start/stop
     rmt_data_t leadin;
     leadin.level0 = 0;
-    leadin.duration0 = 18;
+    leadin.duration0 = 1800;
     leadin.level1 = 1;
-    leadin.duration1 = 9;
+    leadin.duration1 = 900;
     rmt_data_to_send.push_back(leadin);
     for (size_t i = 0; i < data.size() * 8; i++)
     {
@@ -367,27 +386,33 @@ void JHSClimate::send_rmt_data(rmt_obj_t *rmt, std::vector<uint8_t> data)
         {
             rmt_data_t bit1;
             bit1.level0 = 0;
-            bit1.duration0 = 1;
+            bit1.duration0 = 100;
             bit1.level1 = 1;
-            bit1.duration1 = 3;
+            bit1.duration1 = 300;
             rmt_data_to_send.push_back(bit1);
         }
         else
         {
             rmt_data_t bit0;
             bit0.level0 = 0;
-            bit0.duration0 = 1;
+            bit0.duration0 = 100;
             bit0.level1 = 1;
-            bit0.duration1 = 1;
+            bit0.duration1 = 100;
             rmt_data_to_send.push_back(bit0);
         }
     }
 
     rmt_data_t leadout;
     leadout.level0 = 0;
-    leadout.duration0 = 1; // zero at end
+    leadout.duration0 = 100;
     leadout.level1 = 1;
-    leadout.duration1 = 3;
+    leadout.duration1 = 100;
     rmt_data_to_send.push_back(leadout);
+    rmt_data_t end;
+    end.level0 = 0;
+    end.duration0 = 200;
+    end.level1 = 1;
+    end.duration1 = 200;
+    rmt_data_to_send.push_back(end);
     rmtWrite(rmt, rmt_data_to_send.data(), rmt_data_to_send.size());
 }
