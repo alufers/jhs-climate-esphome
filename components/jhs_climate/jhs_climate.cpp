@@ -275,10 +275,20 @@ void JHSClimate::recv_from_ac()
             {
                 this->publish_state();
             }
-            bool water_full = this->water_full;
-            if (water_full != packet.water_full)
+            if (this->water_full != packet.water_full)
             {
-                this->water_full->publish_state(packet.water_full);
+                if (packet.water_full){
+                    last_water_full = esphome::millis();
+                    this->water_full = true;
+                }else{
+                    if (esphome::millis() - last_water_full > WATER_FULL_INTERVAL){
+                        this->water_full = false;
+                    }else{
+                        this->water_full = true;
+                    }
+                    last_water_full = esphome::millis();
+                }
+                this->water_full_sensor->publish_state(this->water_full);
             }
         }
         else

@@ -29,7 +29,7 @@ public:
     void set_panel_tx_pin(esphome::InternalGPIOPin *panel_tx_pin) { panel_tx_pin_ = panel_tx_pin; }
     void set_panel_rx_pin(esphome::InternalGPIOPin *panel_rx_pin) { panel_rx_pin_ = panel_rx_pin; }
 
-    void set_water_full_sensor(esphome::binary_sensor::BinarySensor *water_full_) { water_full  = water_full_; }
+    void set_water_full_sensor(esphome::binary_sensor::BinarySensor *water_full_sensor_) { water_full_sensor  = water_full_sensor_; }
 
     // esphome handlers
     void setup() override;
@@ -43,7 +43,7 @@ protected:
     esphome::InternalGPIOPin *ac_rx_pin_;
     esphome::InternalGPIOPin *panel_tx_pin_;
     esphome::InternalGPIOPin *panel_rx_pin_;
-    esphome::binary_sensor::BinarySensor *water_full;
+    esphome::binary_sensor::BinarySensor *water_full_sensor;
 
     rmt_obj_t *rmt_ac_tx;
     rmt_obj_t *rmt_panel_tx;
@@ -54,6 +54,9 @@ protected:
     int steps_left_to_adjust_temp = 0;
     int steps_left_to_adjust_fan = 0;
     bool adjust_preset = false;
+    bool water_full = false;
+    uint32_t last_water_full = 0;
+    const int WATER_FULL_INTERVAL = 3000;
 
     // is_adjusting is set to true when a change was made externally (e.g. homeassistant) and we are in the process of pressing button
     bool is_adjusting();
