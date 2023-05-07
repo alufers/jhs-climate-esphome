@@ -17,6 +17,14 @@ const std::array<uint8_t, 3> BUTTON_HIGHER_TEMP{0x30, 0x08, 0x92};
 const std::array<uint8_t, 3> BUTTON_MODE{0x30, 0x01, 0x8b};
 const std::array<uint8_t, 3> BUTTON_FAN{0x30, 0x05, 0x8f};
 const std::array<uint8_t, 3> KEEPALIVE_PACKET{0x30, 0x00, 0x8a};
+const std::array<uint8_t, 3> BUTTON_OFF{0x30, 0x04, 0x8e};
+
+
+const std::array<uint8_t, 3> BUTTON_TIMER{0x30, 0x06, 0x90};
+const std::array<uint8_t, 3> BUTTON_SWING{0x30, 0x07, 0x91};
+const std::array<uint8_t, 3> BUTTON_DEHUM{0x30, 0x09, 0x93};
+const std::array<uint8_t, 3> BUTTON_SLEEP{0x30, 0x0a, 0x94};
+
 
 ///@brief Packet sent from the AC to the panel.
 struct JHSAcPacket
@@ -56,6 +64,7 @@ struct JHSAcPacket
 
     void set_temp(int);
     int get_temp();
+    void set_display(std::string);
 
     ///@brief Parses the packet and checks the checksum.
     static esphome::optional<JHSAcPacket> parse(const std::vector<uint8_t> &data);

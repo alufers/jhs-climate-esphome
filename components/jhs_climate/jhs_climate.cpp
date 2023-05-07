@@ -12,7 +12,10 @@
 
 static const char *TAG = "JHSClimate";
 
-
+namespace esphome
+{
+namespace JHSClimate
+{
 static std::string bytes_to_hex2(std::vector<uint8_t> bytes)
 {
     std::stringstream ss;
@@ -125,12 +128,6 @@ void JHSClimate::loop()
 {
     this->recv_from_ac();
     this->recv_from_panel();
-    // this->update_screen_if_needed();
-    // loop_idx++;
-    // if (loop_idx % 20 == 0)
-    // {
-    //     ESP_LOGD(TAG, "digitalRead(ac_rx) = %d, digitalRead(panel_rx) = %d", digitalRead(this->ac_rx_pin_->get_pin()), digitalRead(this->panel_rx_pin_->get_pin()));
-    // }
 }
 
 
@@ -171,13 +168,6 @@ void JHSClimate::recv_from_panel()
         {
             ESP_LOGI(TAG, "Received unknown packet from panel: %s", bytes_to_hex2(packet_vector).c_str());
         }
-        // uint32_t now = esphome::millis();
-        // if (now - last_packet_from_panel < PANEL_MIN_PACKET_INTERVAL)
-        // {
-        //     ESP_LOGD(TAG, "Received packet from panel too soon, ignoring");
-        //     continue;
-        // }
-        // last_packet_from_panel = now;
         this->send_rmt_data(this->rmt_ac_tx, packet_vector);
     }
 }
@@ -193,31 +183,23 @@ void JHSClimate::recv_from_ac()
 
     while (xQueueReceive(ac_rx_queue, &packet, 0))
     {
-        did_try_turn_on = false;
         std::vector<uint8_t> packet_vector(packet, packet + JHS_AC_PACKET_SIZE);
         esphome::optional<JHSAcPacket> packet_optional = JHSAcPacket::parse(packet_vector);
         if (!packet_optional)
         {
-            //ESP_LOGD(TAG, "Received invalid packet from AC");
+            ESP_LOGV(TAG, "Received invalid packet from AC");
             continue;
         }
         JHSAcPacket packet = *packet_optional;
-        // this->last_packet_from_ac = esphome::millis();
-        // std::string packet_str = packet.to_string();
-        // if (packet_str != last_ac_packet_string)
-        // {
-        //     ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int)same_ac_packets_count, packet_str.c_str());
-        //     last_ac_packet_string = packet_str;
-        //     same_ac_packets_count = 0;
-        // }
-        // else
-        // {
-        //     same_ac_packets_count++;
-        // }
+        ESP_LOGVV(TAG, "Received new packet from AC: %s", packet_str.c_str());
 
 
         // Modify the packet 
         packet.timer = 1;
+        if (is_adjusting()){
+            packet.beep_amount = 0;
+            packet.beep_length = 0;
+        }
 
         esphome::climate::ClimateMode mode_from_packet = esphome::climate::CLIMATE_MODE_OFF;
         if (packet.cool)
@@ -274,9 +256,15 @@ void JHSClimate::recv_from_ac()
                 this->preset = preset_from_packet;
                 did_change = true;
             }
+            
             if (did_change)
             {
                 this->publish_state();
+            }
+            bool water_full = this->water_full;
+            if (water_full != packet.water_full)
+            {
+                this->water_full->publish_state(packet.water_full);
             }
         }
         else
@@ -367,38 +355,13 @@ void JHSClimate::recv_from_ac()
         }
         this->send_rmt_data(this->rmt_panel_tx, packet.to_wire_format());
     }
-    if (esphome::millis() - last_packet_from_ac > 700 &&
-        //!did_receive &&
-        is_adjusting() &&
-        this->mode != esphome::climate::CLIMATE_MODE_OFF &&
-        !did_try_turn_on)
-    {
-        did_try_turn_on = true;
-        last_packet_from_ac = esphome::millis();
-        // turn on the ac
-        auto packet_to_send = BUTTON_ON;
-        // create a vector from BUTTON_MODE, which is an std::array
-        std::vector<uint8_t> packet_vector(packet_to_send.begin(), packet_to_send.end());
-        ESP_LOGD(TAG, "Sending BUTTON_ON packet to AC (try to turn on)");
-        this->send_rmt_data(this->rmt_ac_tx, packet_vector);
-    }
 }
 
-// void JHSClimate::update_screen_if_needed()
-// {
-//     if (this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0)
-//         return;
-//     if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
-//     {
-//         return;
-//     }
-//     this->last_screen_update = esphome::millis();
-//     ESP_LOGD(TAG, "Updating screen with last packet from AC: %s", bytes_to_hex2(this->last_packet_from_ac_vector).c_str());
 
-//     this->send_rmt_data(this->rmt_panel_tx, this->last_packet_from_ac_vector);
-// }
 void JHSClimate::send_rmt_data(rmt_obj_t *rmt, std::vector<uint8_t> data)
 {
+    ESP_LOGVV(TAG, "Sending RMT data: %s", bytes_to_hex2(data).c_str());
+
     std::vector<rmt_data_t> rmt_data_to_send = {};
     rmt_data_to_send.reserve((data.size() * 8) + 2); // 8 bits per byte + 2 bits for start/stop
     rmt_data_t leadin;
@@ -445,3 +408,7 @@ void JHSClimate::send_rmt_data(rmt_obj_t *rmt, std::vector<uint8_t> data)
     rmt_data_to_send.push_back(end);
     rmtWrite(rmt, rmt_data_to_send.data(), rmt_data_to_send.size());
 }
+
+
+} // namespace jhs
+} // namespace esphome
