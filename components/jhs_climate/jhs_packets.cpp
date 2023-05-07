@@ -43,11 +43,9 @@ static char seven_segment_to_char(uint8_t s7)
         return 'E';
     case 0x71:
         return 'F';
+    case 0x74:
+        return 'h';
     case 0x76:
-        return 'D';
-    case 0x38:
-        return 'H';
-    case 0x3A:
         return 'H';
     default:
         return '?';
@@ -70,7 +68,7 @@ static uint8_t char_to_seven_segment(char c)
     case '5':
         return 0x6D;
     case '6':
-        return 0x7D;
+        return 0x7D; 
     case '7':
         return 0x07;
     case '8':
@@ -90,11 +88,11 @@ static uint8_t char_to_seven_segment(char c)
     case 'F':
         return 0x71;
     case 'd':
-        return 0x76;
+        return 0x5e;
     case 'h':
-        return 0x38;
+        return 0x74;
     case 'H':
-        return 0x3A;
+        return 0x76;
     default:
         return 0x00;
     }
@@ -160,6 +158,14 @@ void JHSAcPacket::set_temp(int temp)
     second_digit = char_to_seven_segment(temp % 10 + '0');
 }
 
+void JHSAcPacket::set_display(std::string temp)
+{
+    if (temp.size() != 2)
+        return;
+    first_digit = char_to_seven_segment(temp[0]);
+    second_digit = char_to_seven_segment(temp[1]);
+}
+
 esphome::optional<JHSAcPacket> JHSAcPacket::parse(const std::vector<uint8_t> &data)
 {
 
@@ -188,7 +194,7 @@ std::vector<uint8_t> JHSAcPacket::to_wire_format()
 {
     std::vector<uint8_t> data;
     data.resize(sizeof(JHSAcPacket) + 1);
-    std::memcpy(data.data(), &this->first_digit, sizeof(JHSAcPacket));
+    std::memcpy(data.data(), &this->addr, sizeof(JHSAcPacket));
     uint8_t checksum = 90;
     for (size_t i = 0; i < data.size() - 1; i++)
     {

@@ -14,6 +14,7 @@
 // logging macros won't work if we don't do this
 using namespace esphome;
 
+
 class JHSClimate : public esphome::Component, public esphome::climate::Climate
 {
 public:
@@ -56,18 +57,21 @@ protected:
     int steps_left_to_adjust_mode = 0;
     int steps_left_to_adjust_temp = 0;
     int steps_left_to_adjust_fan = 0;
+    bool adjust_preset = false;
 
     JHSAcPacket last_ac_packet;
 
     // is_adjusting is set to true when a change was made externally (e.g. homeassistant) and we are in the process of pressing button
     bool is_adjusting();
 
-    std::vector<uint8_t> last_packet_from_ac_vector;
+    // std::vector<uint8_t> last_packet_from_ac_vector;
 
     uint32_t loop_idx = 0;
 
     float rmt_panel_tx_tick;
     float rmt_ac_tx_tick;
+
+    std::string cock;
 
 private:
     // setup helpers

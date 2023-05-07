@@ -12,6 +12,17 @@
 
 static const char *TAG = "JHSClimate";
 
+
+static std::string bytes_to_hex2(std::vector<uint8_t> bytes)
+{
+    std::stringstream ss;
+    for (auto b : bytes)
+    {
+        ss << std::hex << std::setfill('0') << std::setw(2) << (int)b;
+    }
+    return ss.str();
+}
+
 void JHSClimate::setup()
 {
     ESP_LOGI(TAG, "Setting up JHSClimate...");
@@ -21,6 +32,17 @@ void JHSClimate::setup()
         .panel_rx_pin = this->panel_rx_pin_->get_pin()};
     start_jhs_climate_recv_task(recv_config);
     ESP_LOGI(TAG, "JHSClimate setup complete");
+
+    // send hello packet to panel
+    JHSAcPacket hello_packet;
+    hello_packet.set_display("dd");
+    hello_packet.beep_amount = 3;
+    hello_packet.beep_length = 1;
+    hello_packet.unused2 = 1;
+    hello_packet.unused3 = 1;
+    hello_packet.unused4 = 1;
+    hello_packet.unused5 = 1;
+    this->send_rmt_data(this->rmt_panel_tx, hello_packet.to_wire_format());
 }
 
 void JHSClimate::setup_rmt()
@@ -45,26 +67,26 @@ void JHSClimate::setup_rmt()
 
 void JHSClimate::control(const esphome::climate::ClimateCall &call)
 {
-    std::stringstream log;
     if (call.get_target_temperature().has_value())
     {
         this->target_temperature = call.get_target_temperature().value();
         this->steps_left_to_adjust_temp = 24;
-        log << "temp set to " << this->target_temperature << " degrees ";
     }
     if (call.get_mode().has_value())
     {
         this->mode = call.get_mode().value();
         this->steps_left_to_adjust_mode = 8;
-        log << "mode set to " << this->mode << " ";
     }
     if (call.get_fan_mode().has_value())
     {
         this->fan_mode = call.get_fan_mode().value();
         this->steps_left_to_adjust_fan = 1;
-        log << "fan mode set to " << this->fan_mode << " ";
     }
-    ESP_LOGI(TAG, log.str().c_str());
+    if (call.get_preset().has_value())
+    {
+        this->preset = call.get_preset().value();
+        this->adjust_preset = true;
+    }
     this->publish_state();
 }
 
@@ -79,6 +101,8 @@ esphome::climate::ClimateTraits JHSClimate::traits()
                                 esphome::climate::CLIMATE_MODE_FAN_ONLY});
     traits.set_supported_fan_modes({esphome::climate::CLIMATE_FAN_LOW,
                                     esphome::climate::CLIMATE_FAN_HIGH});
+    traits.set_supported_presets({esphome::climate::CLIMATE_PRESET_NONE,
+                                  esphome::climate::CLIMATE_PRESET_SLEEP});
     traits.set_visual_min_temperature(16);
     traits.set_visual_max_temperature(31);
     traits.set_visual_temperature_step(1);
@@ -101,7 +125,7 @@ void JHSClimate::loop()
 {
     this->recv_from_ac();
     this->recv_from_panel();
-    this->update_screen_if_needed();
+    // this->update_screen_if_needed();
     // loop_idx++;
     // if (loop_idx % 20 == 0)
     // {
@@ -109,17 +133,6 @@ void JHSClimate::loop()
     // }
 }
 
-
-
-static std::string bytes_to_hex2(std::vector<uint8_t> bytes)
-{
-    std::stringstream ss;
-    for (auto b : bytes)
-    {
-        ss << std::hex << std::setfill('0') << std::setw(2) << (int)b;
-    }
-    return ss.str();
-}
 
 void JHSClimate::recv_from_panel()
 {
@@ -131,7 +144,7 @@ void JHSClimate::recv_from_panel()
 
         if (memcmp(packet, &KEEPALIVE_PACKET, JHS_PANEL_PACKET_SIZE) == 0)
         {
-            ESP_LOGI(TAG, "Received keepalive packet from panel");
+            //ESP_LOGI(TAG, "Received keepalive packet from panel");
             is_keepalive = true;
         }
         else if (memcmp(packet, &BUTTON_ON, JHS_PANEL_PACKET_SIZE) == 0)
@@ -171,13 +184,12 @@ void JHSClimate::recv_from_panel()
 
 bool JHSClimate::is_adjusting()
 {
-    return this->steps_left_to_adjust_fan > 0 || this->steps_left_to_adjust_temp > 0 || this->steps_left_to_adjust_mode > 0;
+    return this->steps_left_to_adjust_fan > 0 || this->steps_left_to_adjust_temp > 0 || this->steps_left_to_adjust_mode > 0 || this->adjust_preset;
 }
 
 void JHSClimate::recv_from_ac()
 {
     uint8_t packet[JHS_AC_PACKET_SIZE];
-    bool did_receive = false;
 
     while (xQueueReceive(ac_rx_queue, &packet, 0))
     {
@@ -186,26 +198,27 @@ void JHSClimate::recv_from_ac()
         esphome::optional<JHSAcPacket> packet_optional = JHSAcPacket::parse(packet_vector);
         if (!packet_optional)
         {
-            ESP_LOGW(TAG, "Received invalid packet from AC");
-            //last_ac_packet_string = "";
-
+            //ESP_LOGD(TAG, "Received invalid packet from AC");
             continue;
         }
         JHSAcPacket packet = *packet_optional;
-        this->last_packet_from_ac = esphome::millis();
-        last_packet_from_ac_vector = packet_vector;
-        did_receive = true;
-        std::string packet_str = packet.to_string();
-        if (packet_str != last_ac_packet_string)
-        {
-            ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int)same_ac_packets_count, packet_str.c_str());
-            last_ac_packet_string = packet_str;
-            same_ac_packets_count = 0;
-        }
-        else
-        {
-            same_ac_packets_count++;
-        }
+        // this->last_packet_from_ac = esphome::millis();
+        // std::string packet_str = packet.to_string();
+        // if (packet_str != last_ac_packet_string)
+        // {
+        //     ESP_LOGD(TAG, "Received new packet from AC after %d same packets: %s", (int)same_ac_packets_count, packet_str.c_str());
+        //     last_ac_packet_string = packet_str;
+        //     same_ac_packets_count = 0;
+        // }
+        // else
+        // {
+        //     same_ac_packets_count++;
+        // }
+
+
+        // Modify the packet 
+        packet.timer = 1;
+
         esphome::climate::ClimateMode mode_from_packet = esphome::climate::CLIMATE_MODE_OFF;
         if (packet.cool)
         {
@@ -233,6 +246,9 @@ void JHSClimate::recv_from_ac()
         {
             fan_from_packet = esphome::climate::CLIMATE_FAN_LOW;
         }
+        esphome::climate::ClimatePreset preset_from_packet = esphome::climate::CLIMATE_PRESET_NONE;
+        if (packet.sleep) preset_from_packet = esphome::climate::CLIMATE_PRESET_SLEEP;
+
         if (!this->is_adjusting())
         {
             // if we are not adjusting anything we can copy the state from the packet to the climate
@@ -251,6 +267,11 @@ void JHSClimate::recv_from_ac()
             if (this->fan_mode != fan_from_packet)
             {
                 this->fan_mode = fan_from_packet;
+                did_change = true;
+            }
+            if (this->preset != preset_from_packet)
+            {
+                this->preset = preset_from_packet;
                 did_change = true;
             }
             if (did_change)
@@ -333,10 +354,21 @@ void JHSClimate::recv_from_ac()
                     this->steps_left_to_adjust_fan = 0;
                 }
             }
+            if (this->preset != preset_from_packet)
+            {
+                auto packet_to_send = BUTTON_SLEEP;
+                // create a vector from BUTTON_SLEEP, which is an std::array
+                std::vector<uint8_t> packet_vector(packet_to_send.begin(), packet_to_send.end());
+                ESP_LOGD(TAG, "Sending BUTTON_SLEEP packet to AC");
+                this->send_rmt_data(this->rmt_ac_tx, packet_vector);
+                this->adjust_preset = false;
+            }
+
         }
+        this->send_rmt_data(this->rmt_panel_tx, packet.to_wire_format());
     }
     if (esphome::millis() - last_packet_from_ac > 700 &&
-        !did_receive &&
+        //!did_receive &&
         is_adjusting() &&
         this->mode != esphome::climate::CLIMATE_MODE_OFF &&
         !did_try_turn_on)
@@ -347,27 +379,24 @@ void JHSClimate::recv_from_ac()
         auto packet_to_send = BUTTON_ON;
         // create a vector from BUTTON_MODE, which is an std::array
         std::vector<uint8_t> packet_vector(packet_to_send.begin(), packet_to_send.end());
-        ESP_LOGD(TAG, "Sending BUTTON_ON packet to AC");
+        ESP_LOGD(TAG, "Sending BUTTON_ON packet to AC (try to turn on)");
         this->send_rmt_data(this->rmt_ac_tx, packet_vector);
     }
-    if (did_receive)
-    {
-        this->update_screen_if_needed();
-    }
 }
 
-void JHSClimate::update_screen_if_needed()
-{
-    if (this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0)
-        return;
-    // if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
-    // {
-    //     return;
-    // }
-    // this->last_screen_update = esphome::millis();
+// void JHSClimate::update_screen_if_needed()
+// {
+//     if (this->is_adjusting() || this->last_packet_from_ac_vector.size() == 0)
+//         return;
+//     if (esphome::millis() - this->last_screen_update < SCREEN_UPDATE_INTERVAL)
+//     {
+//         return;
+//     }
+//     this->last_screen_update = esphome::millis();
+//     ESP_LOGD(TAG, "Updating screen with last packet from AC: %s", bytes_to_hex2(this->last_packet_from_ac_vector).c_str());
 
-    this->send_rmt_data(this->rmt_panel_tx, this->last_packet_from_ac_vector);
-}
+//     this->send_rmt_data(this->rmt_panel_tx, this->last_packet_from_ac_vector);
+// }
 void JHSClimate::send_rmt_data(rmt_obj_t *rmt, std::vector<uint8_t> data)
 {
     std::vector<rmt_data_t> rmt_data_to_send = {};
