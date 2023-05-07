@@ -38,13 +38,9 @@ void JHSClimate::setup()
 
     // send hello packet to panel
     JHSAcPacket hello_packet;
-    hello_packet.set_display("dd");
     hello_packet.beep_amount = 3;
     hello_packet.beep_length = 1;
-    hello_packet.unused2 = 1;
-    hello_packet.unused3 = 1;
-    hello_packet.unused4 = 1;
-    hello_packet.unused5 = 1;
+    hello_packet.set_display("dd");
     this->send_rmt_data(this->rmt_panel_tx, hello_packet.to_wire_format());
 }
 
@@ -137,12 +133,10 @@ void JHSClimate::recv_from_panel()
     while (xQueueReceive(panel_rx_queue, &packet, 0))
     {
         std::vector<uint8_t> packet_vector(packet, packet + JHS_PANEL_PACKET_SIZE);
-        bool is_keepalive = false;
 
         if (memcmp(packet, &KEEPALIVE_PACKET, JHS_PANEL_PACKET_SIZE) == 0)
         {
-            //ESP_LOGI(TAG, "Received keepalive packet from panel");
-            is_keepalive = true;
+            ESP_LOGVV(TAG, "Received keepalive packet from panel");
         }
         else if (memcmp(packet, &BUTTON_ON, JHS_PANEL_PACKET_SIZE) == 0)
         {
@@ -163,6 +157,26 @@ void JHSClimate::recv_from_panel()
         else if (memcmp(packet, &BUTTON_FAN, JHS_PANEL_PACKET_SIZE) == 0)
         {
             ESP_LOGI(TAG, "Received BUTTON_FAN from panel");
+        }
+        else if (memcmp(packet, &BUTTON_SLEEP, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_SLEEP from panel");
+        }
+        else if (memcmp(packet, &BUTTON_TIMER, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_TIMER from panel");
+        }
+        else if (memcmp(packet, &BUTTON_UNIT_CHANGE, JHS_PANEL_PACKET_SIZE) == 0)
+        {
+            ESP_LOGI(TAG, "Received BUTTON_UNIT_CHANGE from panel, ignoring");
+            JHSAcPacket hello_packet;
+            hello_packet.beep_amount = 3;
+            hello_packet.beep_length = 2;
+            hello_packet.power = 0;
+            hello_packet.cool = 1;
+            hello_packet.set_display("dd");
+            this->send_rmt_data(this->rmt_panel_tx, hello_packet.to_wire_format());
+            continue;
         }
         else
         {
@@ -195,7 +209,7 @@ void JHSClimate::recv_from_ac()
 
 
         // Modify the packet 
-        packet.timer = 1;
+        packet.wifi = wifi::global_wifi_component->is_connected();
         if (is_adjusting()){
             packet.beep_amount = 0;
             packet.beep_length = 0;

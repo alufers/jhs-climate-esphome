@@ -5,6 +5,8 @@
 #include "esphome/core/gpio.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/wifi/wifi_component.h"
+#include "esphome/components/ota/ota_component.h"
 #include "esphome.h"
 
 #include "esp32-hal-rmt.h"
@@ -21,13 +23,12 @@ namespace JHSClimate
 class JHSClimate : public esphome::Component, public esphome::climate::Climate
 {
 public:
-    // esphome::climate::Climate *climate = new esphome::climate::Climate();
     // pin setters
-    
     void set_ac_tx_pin(esphome::InternalGPIOPin *ac_tx_pin) { ac_tx_pin_ = ac_tx_pin; }
     void set_ac_rx_pin(esphome::InternalGPIOPin *ac_rx_pin) { ac_rx_pin_ = ac_rx_pin; }
     void set_panel_tx_pin(esphome::InternalGPIOPin *panel_tx_pin) { panel_tx_pin_ = panel_tx_pin; }
     void set_panel_rx_pin(esphome::InternalGPIOPin *panel_rx_pin) { panel_rx_pin_ = panel_rx_pin; }
+
     void set_water_full_sensor(esphome::binary_sensor::BinarySensor *water_full_) { water_full  = water_full_; }
 
     // esphome handlers
@@ -35,7 +36,6 @@ public:
     void dump_config() override;
     esphome::climate::ClimateTraits traits() override;
     void control(const esphome::climate::ClimateCall &call) override;
-
     void loop() override;
 
 protected:
