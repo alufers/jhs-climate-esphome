@@ -44,6 +44,7 @@ protected:
     esphome::InternalGPIOPin *panel_tx_pin_;
     esphome::InternalGPIOPin *panel_rx_pin_;
     esphome::binary_sensor::BinarySensor *water_full_sensor;
+    // esphome::ota::OTAComponent *OTAComponent =
 
     rmt_obj_t *rmt_ac_tx;
     rmt_obj_t *rmt_panel_tx;

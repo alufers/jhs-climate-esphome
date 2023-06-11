@@ -15,6 +15,7 @@ static volatile uint8_t ac_rx_packet[JHS_AC_PACKET_SIZE];
 static void IRAM_ATTR jhs_ac_rx_isr()
 {
     unsigned long length = micros() - ac_rx_last_falling_edge_time;
+    ac_rx_last_falling_edge_time = micros();
     if (length > 20 && length < 32 * 250)
     {
         if (length < 2 * 250 + 280)
@@ -45,7 +46,6 @@ static void IRAM_ATTR jhs_ac_rx_isr()
             xQueueSend(ac_rx_queue, (void *) ac_rx_packet, 0);
         }
     }
-    ac_rx_last_falling_edge_time = micros();
 }
 
 static volatile unsigned long panel_rx_last_falling_edge_time = 0;
@@ -55,6 +55,7 @@ static volatile uint8_t panel_rx_packet[JHS_PANEL_PACKET_SIZE];
 static void IRAM_ATTR jhs_panel_rx_isr()
 {
     unsigned long length = micros() - panel_rx_last_falling_edge_time;
+    panel_rx_last_falling_edge_time = micros();
     if (length > 20 && length < 32 * 250)
     {
         if (length < 2 * 250 + 280)
@@ -85,7 +86,6 @@ static void IRAM_ATTR jhs_panel_rx_isr()
             xQueueSend(panel_rx_queue, (void *) panel_rx_packet, 0);
         }
     }
-    panel_rx_last_falling_edge_time = micros();
 }
 
 static void jhs_recv_task_func(void *arg)

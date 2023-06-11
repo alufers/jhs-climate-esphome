@@ -42,6 +42,19 @@ void JHSClimate::setup()
     hello_packet.beep_length = 1;
     hello_packet.set_display("dd");
     this->send_rmt_data(this->rmt_panel_tx, hello_packet.to_wire_format());
+    // auto ota = esphome::App.get_component<ota::OTAComponent>("ota");
+    // OTAComponent->add_on_state_callback([this](esphome::ota::OTAState state, float progress, uint8_t error) {
+    //   if (state == esphome::ota::OTA_IN_PROGRESS) {
+    //     ESP_LOGD(TAG, "OTA in progress %f", progress);
+    //     JHSAcPacket ota_progress_packet;    
+    //     // Display progress on panel
+    //     ota_progress_packet.set_temp(int(progress));
+    //     ota_progress_packet.wifi = 1;
+    //     ota_progress_packet.unused_above_timer = 1;
+    //     this->send_rmt_data(this->rmt_panel_tx, ota_progress_packet.to_wire_format());
+    //   }
+    // });
+
 }
 
 void JHSClimate::setup_rmt()
@@ -93,7 +106,7 @@ esphome::climate::ClimateTraits JHSClimate::traits()
 {
     // The capabilities of the climate device
     auto traits = esphome::climate::ClimateTraits();
-    // traits.set_supports_current_temperature(true);
+    traits.set_supports_current_temperature(true);
     traits.set_supported_modes({esphome::climate::CLIMATE_MODE_OFF,
                                 esphome::climate::CLIMATE_MODE_DRY,
                                 esphome::climate::CLIMATE_MODE_COOL,
@@ -105,7 +118,6 @@ esphome::climate::ClimateTraits JHSClimate::traits()
     traits.set_visual_min_temperature(16);
     traits.set_visual_max_temperature(31);
     traits.set_visual_temperature_step(1);
-    // traits.set_supports_target_temperature(true);
     return traits;
 }
 
@@ -205,11 +217,11 @@ void JHSClimate::recv_from_ac()
             continue;
         }
         JHSAcPacket packet = *packet_optional;
-        ESP_LOGVV(TAG, "Received new packet from AC: %s", packet_str.c_str());
+        ESP_LOGVV(TAG, "Received new packet from AC: %s", packet.to_string());
 
 
         // Modify the packet 
-        packet.wifi = wifi::global_wifi_component->is_connected();
+        packet.wifi = !wifi::global_wifi_component->is_connected();
         if (is_adjusting()){
             packet.beep_amount = 0;
             packet.beep_length = 0;
@@ -232,7 +244,6 @@ void JHSClimate::recv_from_ac()
         {
             mode_from_packet = esphome::climate::CLIMATE_MODE_DRY;
         }
-        float temp_from_packet = packet.get_temp();
         esphome::climate::ClimateFanMode fan_from_packet = esphome::climate::CLIMATE_FAN_LOW;
         if (packet.fan_high)
         {
@@ -250,9 +261,14 @@ void JHSClimate::recv_from_ac()
             // if we are not adjusting anything we can copy the state from the packet to the climate
 
             bool did_change = false;
-            if (temp_from_packet > 0 && this->target_temperature != temp_from_packet && packet.cool)
+            if (packet.get_temp() > 0 && this->target_temperature != packet.get_temp() && packet.cool)
             {
-                this->target_temperature = temp_from_packet;
+                this->target_temperature = packet.get_temp();
+                did_change = true;
+            }
+            if (this->current_temperature != packet.get_temp())
+            {
+                this->current_temperature = packet.get_temp(); // Fake the current temperature
                 did_change = true;
             }
             if (this->mode != mode_from_packet)
@@ -326,10 +342,10 @@ void JHSClimate::recv_from_ac()
             }
             if (this->steps_left_to_adjust_temp > 0)
             {
-                if (this->target_temperature != temp_from_packet)
+                if (this->target_temperature != packet.get_temp())
                 {
                     auto packet_to_send = BUTTON_LOWER_TEMP;
-                    if (this->target_temperature > temp_from_packet)
+                    if (this->target_temperature > packet.get_temp())
                     {
                         packet_to_send = BUTTON_HIGHER_TEMP;
                         ESP_LOGD(TAG, "Sending BUTTON_HIGHER_TEMP packet to AC");
