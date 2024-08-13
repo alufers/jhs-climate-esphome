@@ -13,7 +13,7 @@ You also need too pull down the `panel_rx_pin' to ground, using a 2K resistor (o
 
 ```yaml
 external_components:
-  - source: github://kacpi2442/jhs-climate-esphome
+  - source: github://alufers/jhs-climate-esphome
 climate:
 binary_sensor:
 jhs_climate:
