@@ -15,14 +15,15 @@ static volatile uint8_t ac_rx_packet[JHS_AC_PACKET_SIZE];
 static void IRAM_ATTR jhs_ac_rx_isr()
 {
     unsigned long length = micros() - ac_rx_last_falling_edge_time;
-    if (length > 200 * 2 && length < 30 * 250)
+    ac_rx_last_falling_edge_time = micros();
+    if (length > 20 && length < 32 * 250)
     {
         if (length < 2 * 250 + 280)
         {
             // zero
             ac_rx_bits_from_start++;
         }
-        else if (length < 4 * 250 + 90)
+        else if (length < 4 * 250 + 250)
         {
             // set bit in packet to one
             ac_rx_packet[ac_rx_bits_from_start / 8] |= (1 << (7 - ac_rx_bits_from_start % 8));
@@ -45,7 +46,6 @@ static void IRAM_ATTR jhs_ac_rx_isr()
             xQueueSend(ac_rx_queue, (void *) ac_rx_packet, 0);
         }
     }
-    ac_rx_last_falling_edge_time = micros();
 }
 
 static volatile unsigned long panel_rx_last_falling_edge_time = 0;
@@ -55,14 +55,15 @@ static volatile uint8_t panel_rx_packet[JHS_PANEL_PACKET_SIZE];
 static void IRAM_ATTR jhs_panel_rx_isr()
 {
     unsigned long length = micros() - panel_rx_last_falling_edge_time;
-    if (length > 200 * 2 && length < 30 * 250)
+    panel_rx_last_falling_edge_time = micros();
+    if (length > 20 && length < 32 * 250)
     {
         if (length < 2 * 250 + 280)
         {
             // zero
             panel_rx_bits_from_start++;
         }
-        else if (length < 4 * 250 + 90)
+        else if (length < 4 * 250 + 250)
         {
             // set bit in packet to one
             panel_rx_packet[panel_rx_bits_from_start / 8] |= (1 << (7 - panel_rx_bits_from_start % 8));
@@ -85,7 +86,6 @@ static void IRAM_ATTR jhs_panel_rx_isr()
             xQueueSend(panel_rx_queue, (void *) panel_rx_packet, 0);
         }
     }
-    panel_rx_last_falling_edge_time = micros();
 }
 
 static void jhs_recv_task_func(void *arg)
@@ -93,7 +93,7 @@ static void jhs_recv_task_func(void *arg)
     jhs_recv_task_config *config_ptr = (jhs_recv_task_config *)arg;
 
     pinMode(config_ptr->ac_rx_pin, INPUT);
-    pinMode(config_ptr->panel_rx_pin, INPUT);
+    pinMode(config_ptr->panel_rx_pin, INPUT_PULLDOWN);
     attachInterrupt(config_ptr->ac_rx_pin, jhs_ac_rx_isr, FALLING);
     attachInterrupt(config_ptr->panel_rx_pin, jhs_panel_rx_isr, FALLING);
 
